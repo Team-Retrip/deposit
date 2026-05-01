@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew build *)",
+      "Bash(gradle wrapper *)",
+      "Bash(java -version)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(curl -s -L https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip)",
+      "Bash(unzip -q /tmp/gradle.zip -d /tmp/)",
+      "Bash(/tmp/gradle-8.7/bin/gradle wrapper *)",
+      "Bash(curl -s https://services.gradle.org/versions/current)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['version']\\)\")",
+      "Bash(curl -s -L https://services.gradle.org/distributions/gradle-9.4.1-bin.zip -o /tmp/gradle-9.zip)",
+      "Bash(unzip -q /tmp/gradle-9.zip -d /tmp/)",
+      "Bash(/tmp/gradle-9.4.1/bin/gradle wrapper *)",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew compileTestJava)",
+      "Bash(./gradlew test *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(./gradlew cleanTest test)",
+      "Bash(python3 *)"
+    ]
+  }
+}
