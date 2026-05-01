@@ -22,6 +22,9 @@ public enum ErrorCode {
     DEPOSIT_REFUND_IN_PROGRESS(HttpStatus.CONFLICT, "환불 처리 중인 보증금입니다."),
     DEPOSIT_UNPAID_EXISTS(HttpStatus.BAD_REQUEST, "미납된 보증금이 있어 여행을 시작할 수 없습니다."),
 
+    // Settlement
+    SETTLEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "정산 내역을 찾을 수 없습니다."),
+
     // PG
     PG_PAYMENT_FAILED(HttpStatus.BAD_GATEWAY, "결제 처리 중 오류가 발생했습니다."),
     PG_REFUND_FAILED(HttpStatus.BAD_GATEWAY, "환불 처리 중 오류가 발생했습니다.");
