@@ -49,4 +49,12 @@ public class SettlementBalance {
         this.totalAmount = this.totalAmount.add(amount);
         this.lastUpdatedAt = LocalDateTime.now();
     }
+
+    /**
+     * 정산 금액 수정 시 기존 금액을 빼고 새 금액을 더해 잔액을 조정한다.
+     */
+    public void adjust(Money oldAmount, Money newAmount) {
+        this.totalAmount = this.totalAmount.subtract(oldAmount).add(newAmount);
+        this.lastUpdatedAt = LocalDateTime.now();
+    }
 }

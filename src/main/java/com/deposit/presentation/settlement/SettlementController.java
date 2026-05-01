@@ -1,14 +1,17 @@
 package com.deposit.presentation.settlement;
 
 import com.deposit.application.settlement.dto.command.CreateSettlementCommand;
+import com.deposit.application.settlement.dto.command.UpdateSettlementCommand;
 import com.deposit.application.settlement.dto.result.SettlementBalanceResult;
 import com.deposit.application.settlement.dto.result.SettlementResult;
 import com.deposit.application.settlement.port.in.CreateSettlementUseCase;
 import com.deposit.application.settlement.port.in.GetSettlementBalancesUseCase;
 import com.deposit.application.settlement.port.in.GetTripSettlementsUseCase;
+import com.deposit.application.settlement.port.in.UpdateSettlementUseCase;
 import com.deposit.common.response.ApiResponse;
 import com.deposit.domain.deposit.vo.Money;
 import com.deposit.presentation.settlement.dto.request.CreateSettlementRequest;
+import com.deposit.presentation.settlement.dto.request.UpdateSettlementRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +26,7 @@ import java.util.UUID;
 public class SettlementController {
 
     private final CreateSettlementUseCase createSettlementUseCase;
+    private final UpdateSettlementUseCase updateSettlementUseCase;
     private final GetTripSettlementsUseCase getTripSettlementsUseCase;
     private final GetSettlementBalancesUseCase getSettlementBalancesUseCase;
 
@@ -49,6 +53,31 @@ public class SettlementController {
         String message = result.getNotificationMessage() != null
                 ? result.getNotificationMessage()
                 : String.format("정산금 %s원이 누적되었습니다.", result.getAmount());
+
+        return ApiResponse.ok(result, message);
+    }
+
+    /**
+     * 정산금 금액 수정
+     * 즉시 정산: 수정된 금액으로 알림 재발송
+     * 나중에 정산: 누적 잔액 조정
+     */
+    @PatchMapping("/{settlementId}")
+    public ApiResponse<SettlementResult> updateSettlement(
+            @PathVariable UUID tripId,
+            @PathVariable Long settlementId,
+            @RequestBody @Valid UpdateSettlementRequest request) {
+
+        SettlementResult result = updateSettlementUseCase.update(
+                UpdateSettlementCommand.builder()
+                        .settlementId(settlementId)
+                        .newAmount(Money.of(request.getAmount()))
+                        .build()
+        );
+
+        String message = result.getNotificationMessage() != null
+                ? result.getNotificationMessage()
+                : String.format("정산금이 %s원으로 수정되었습니다.", result.getAmount());
 
         return ApiResponse.ok(result, message);
     }

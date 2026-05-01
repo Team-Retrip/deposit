@@ -72,4 +72,33 @@ class SettlementTest {
             assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.ACCUMULATED);
         }
     }
+
+    @Nested
+    @DisplayName("금액 수정(updateAmount)")
+    class UpdateAmount {
+
+        @Test
+        @DisplayName("즉시 정산 금액 수정 → 새 금액으로 교체, 상태 유지")
+        void update_immediate_changesAmount() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "점심값", SettlementType.IMMEDIATE);
+            settlement.notified();
+
+            settlement.updateAmount(Money.wons(50000));
+
+            assertThat(settlement.getAmount()).isEqualTo(Money.wons(50000));
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.NOTIFIED);
+        }
+
+        @Test
+        @DisplayName("나중에 정산 금액 수정 → 새 금액으로 교체, 상태 유지")
+        void update_deferred_changesAmount() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "숙박비", SettlementType.DEFERRED);
+            settlement.accumulated();
+
+            settlement.updateAmount(Money.wons(15000));
+
+            assertThat(settlement.getAmount()).isEqualTo(Money.wons(15000));
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.ACCUMULATED);
+        }
+    }
 }

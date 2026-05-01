@@ -59,4 +59,52 @@ class SettlementBalanceTest {
 
         assertThat(balance.getLastUpdatedAt()).isAfterOrEqualTo(before);
     }
+
+    @Test
+    @DisplayName("adjust: 금액 증가 (newAmount > oldAmount)")
+    void adjust_increase() {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(30000));
+
+        balance.adjust(Money.wons(30000), Money.wons(50000));
+
+        assertThat(balance.getTotalAmount()).isEqualTo(Money.wons(50000));
+    }
+
+    @Test
+    @DisplayName("adjust: 금액 감소 (newAmount < oldAmount)")
+    void adjust_decrease() {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(30000));
+
+        balance.adjust(Money.wons(30000), Money.wons(10000));
+
+        assertThat(balance.getTotalAmount()).isEqualTo(Money.wons(10000));
+    }
+
+    @Test
+    @DisplayName("adjust: 여러 정산 누적 후 하나만 수정 → 나머지 유지")
+    void adjust_partialChange() {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(20000)); // 첫 번째 정산
+        balance.accumulate(Money.wons(30000)); // 두 번째 정산 → 누적 50000
+
+        // 두 번째 정산을 30000 → 40000 으로 수정
+        balance.adjust(Money.wons(30000), Money.wons(40000));
+
+        assertThat(balance.getTotalAmount()).isEqualTo(Money.wons(60000));
+    }
+
+    @Test
+    @DisplayName("adjust 시 lastUpdatedAt 갱신")
+    void adjust_updatesLastUpdatedAt() throws InterruptedException {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(20000));
+        var before = balance.getLastUpdatedAt();
+        Thread.sleep(1);
+
+        balance.adjust(Money.wons(20000), Money.wons(30000));
+
+        assertThat(balance.getLastUpdatedAt()).isAfterOrEqualTo(before);
+    }
 }

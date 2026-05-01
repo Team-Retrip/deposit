@@ -67,6 +67,10 @@ public class Settlement {
         this.status = SettlementStatus.ACCUMULATED;
     }
 
+    public void updateAmount(Money newAmount) {
+        this.amount = newAmount;
+    }
+
     public boolean isImmediate() {
         return this.type == SettlementType.IMMEDIATE;
     }

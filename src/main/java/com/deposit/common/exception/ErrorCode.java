@@ -24,6 +24,7 @@ public enum ErrorCode {
 
     // Settlement
     SETTLEMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "정산 내역을 찾을 수 없습니다."),
+    SETTLEMENT_BALANCE_NOT_FOUND(HttpStatus.NOT_FOUND, "정산 누적 잔액을 찾을 수 없습니다."),
 
     // PG
     PG_PAYMENT_FAILED(HttpStatus.BAD_GATEWAY, "결제 처리 중 오류가 발생했습니다."),

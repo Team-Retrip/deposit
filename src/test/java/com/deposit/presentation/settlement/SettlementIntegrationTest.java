@@ -28,12 +28,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("정산 통합 테스트")
 class SettlementIntegrationTest {
 
-    private static final UUID TRIP_1 = UUID.fromString("aa000000-0000-0000-0000-000000000001");
-    private static final UUID TRIP_2 = UUID.fromString("aa000000-0000-0000-0000-000000000002");
-    private static final UUID TRIP_3 = UUID.fromString("aa000000-0000-0000-0000-000000000003");
-    private static final UUID TRIP_4 = UUID.fromString("aa000000-0000-0000-0000-000000000004");
-    private static final UUID TRIP_5 = UUID.fromString("aa000000-0000-0000-0000-000000000005");
-    private static final UUID TRIP_6 = UUID.fromString("aa000000-0000-0000-0000-000000000006");
+    private static final UUID TRIP_1  = UUID.fromString("aa000000-0000-0000-0000-000000000001");
+    private static final UUID TRIP_2  = UUID.fromString("aa000000-0000-0000-0000-000000000002");
+    private static final UUID TRIP_3  = UUID.fromString("aa000000-0000-0000-0000-000000000003");
+    private static final UUID TRIP_4  = UUID.fromString("aa000000-0000-0000-0000-000000000004");
+    private static final UUID TRIP_5  = UUID.fromString("aa000000-0000-0000-0000-000000000005");
+    private static final UUID TRIP_6  = UUID.fromString("aa000000-0000-0000-0000-000000000006");
+    private static final UUID TRIP_7  = UUID.fromString("aa000000-0000-0000-0000-000000000007");
+    private static final UUID TRIP_8  = UUID.fromString("aa000000-0000-0000-0000-000000000008");
+    private static final UUID TRIP_9  = UUID.fromString("aa000000-0000-0000-0000-000000000009");
+    private static final UUID TRIP_10 = UUID.fromString("aa000000-0000-0000-0000-000000000010");
+    private static final UUID TRIP_11 = UUID.fromString("aa000000-0000-0000-0000-000000000011");
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
@@ -161,6 +166,108 @@ class SettlementIntegrationTest {
     }
 
     // ──────────────────────────────────────────────
+    // 정산 금액 수정
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("PATCH 즉시 정산 금액 수정 → 수정된 금액으로 알림 재발송, 알림 메시지 반환")
+    void updateImmediate_resendNotification() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_1, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+
+        Map<String, Object> body = Map.of("amount", 25000);
+
+        mockMvc.perform(patch("/api/trips/" + TRIP_1 + "/settlements/" + settlementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.amount").value(25000))
+                .andExpect(jsonPath("$.data.status").value("NOTIFIED"))
+                .andExpect(jsonPath("$.message").value(containsString("알림")));
+    }
+
+    @Test
+    @DisplayName("PATCH 나중에 정산 금액 증가 수정 → 잔액 증가")
+    void updateDeferred_increaseAmount_balanceIncreases() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_2, 10L, 20L, 20000, "교통비", SettlementType.DEFERRED);
+
+        Map<String, Object> body = Map.of("amount", 35000);
+
+        mockMvc.perform(patch("/api/trips/" + TRIP_2 + "/settlements/" + settlementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.amount").value(35000))
+                .andExpect(jsonPath("$.data.status").value("ACCUMULATED"))
+                .andExpect(jsonPath("$.message").value(containsString("35000")));
+
+        // 잔액도 35000 으로 변경됐는지 확인
+        mockMvc.perform(get("/api/trips/" + TRIP_2 + "/settlements/balances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(35000));
+    }
+
+    @Test
+    @DisplayName("PATCH 나중에 정산 금액 감소 수정 → 잔액 감소")
+    void updateDeferred_decreaseAmount_balanceDecreases() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_3, 10L, 20L, 50000, "숙박비", SettlementType.DEFERRED);
+
+        Map<String, Object> body = Map.of("amount", 30000);
+
+        mockMvc.perform(patch("/api/trips/" + TRIP_3 + "/settlements/" + settlementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.amount").value(30000));
+
+        mockMvc.perform(get("/api/trips/" + TRIP_3 + "/settlements/balances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(30000));
+    }
+
+    @Test
+    @DisplayName("PATCH 다른 정산 금액 수정 시 기존 정산 잔액 유지")
+    void updateDeferred_otherSettlementUnchanged() throws Exception {
+        // 같은 trip, 같은 payer-debtor 조합에 정산 2건 (누적 50000)
+        createSettlement(TRIP_4, 10L, 20L, 20000, "교통비", SettlementType.DEFERRED);
+        Long secondId = createSettlementAndGetId(TRIP_4, 10L, 20L, 30000, "식비", SettlementType.DEFERRED);
+
+        // 두 번째 정산만 30000 → 40000 수정
+        mockMvc.perform(patch("/api/trips/" + TRIP_4 + "/settlements/" + secondId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 40000))))
+                .andExpect(status().isOk());
+
+        // 잔액: 20000 + 40000 = 60000
+        mockMvc.perform(get("/api/trips/" + TRIP_4 + "/settlements/balances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(60000));
+    }
+
+    @Test
+    @DisplayName("PATCH 존재하지 않는 정산 수정 → 404")
+    void update_notFound_returns404() throws Exception {
+        mockMvc.perform(patch("/api/trips/" + TRIP_5 + "/settlements/99999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 10000))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("PATCH amount 0원 → 400")
+    void update_zeroAmount_returns400() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_5, 10L, 20L, 10000, "점심값", SettlementType.IMMEDIATE);
+
+        mockMvc.perform(patch("/api/trips/" + TRIP_5 + "/settlements/" + settlementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 0))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ──────────────────────────────────────────────
     // 유효성 검사
     // ──────────────────────────────────────────────
 
@@ -204,5 +311,13 @@ class SettlementIntegrationTest {
                 .tripId(tripId).payerId(payerId).debtorId(debtorId)
                 .amount(Money.wons(amount)).description(description).type(type)
                 .build());
+    }
+
+    private Long createSettlementAndGetId(UUID tripId, Long payerId, Long debtorId,
+                                           long amount, String description, SettlementType type) {
+        return createSettlementUseCase.create(CreateSettlementCommand.builder()
+                .tripId(tripId).payerId(payerId).debtorId(debtorId)
+                .amount(Money.wons(amount)).description(description).type(type)
+                .build()).getId();
     }
 }
