@@ -13,6 +13,7 @@ import com.deposit.common.exception.ErrorCode;
 import com.deposit.domain.deposit.Deposit;
 import com.deposit.domain.deposit.DepositPolicy;
 import com.deposit.domain.deposit.vo.Money;
+import com.deposit.domain.deposit.vo.PgProvider;
 import com.deposit.domain.deposit.vo.PolicyStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,11 @@ class DepositPolicyServiceTest {
     @InjectMocks
     DepositPolicyService sut;
 
+    private DepositPolicy samplePolicy() {
+        return DepositPolicy.create(TRIP_ID, 10L, Money.wons(50000),
+                PgProvider.TOSS_PAYMENTS, LocalDateTime.now().plusDays(7));
+    }
+
     @Test
     @DisplayName("보증금 정책 생성 성공")
     void createPolicy_success() {
@@ -54,25 +60,30 @@ class DepositPolicyServiceTest {
             return DepositPolicy.builder()
                     .id(1L).tripId(p.getTripId()).organizerId(p.getOrganizerId())
                     .depositAmount(p.getDepositAmount()).status(PolicyStatus.ACTIVE)
+                    .pgProvider(p.getPgProvider()).tripStartAt(p.getTripStartAt())
                     .createdAt(LocalDateTime.now()).build();
         });
 
         DepositPolicyResult result = sut.createPolicy(CreateDepositPolicyCommand.builder()
-                .tripId(TRIP_ID).organizerId(10L).depositAmount(Money.wons(50000)).build());
+                .tripId(TRIP_ID).organizerId(10L).depositAmount(Money.wons(50000))
+                .pgProvider(PgProvider.TOSS_PAYMENTS).tripStartAt(LocalDateTime.now().plusDays(7))
+                .build());
 
         assertThat(result.getTripId()).isEqualTo(TRIP_ID);
         assertThat(result.getDepositAmount()).isEqualByComparingTo("50000");
+        assertThat(result.getPgProvider()).isEqualTo(PgProvider.TOSS_PAYMENTS);
         then(saveDepositPolicyPort).should().save(any());
     }
 
     @Test
     @DisplayName("이미 정책이 존재하는 여행에 재설정 시 예외")
     void createPolicy_alreadyExists_throws() {
-        DepositPolicy existing = DepositPolicy.create(TRIP_ID, 10L, Money.wons(50000));
-        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(existing));
+        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(samplePolicy()));
 
         assertThatThrownBy(() -> sut.createPolicy(CreateDepositPolicyCommand.builder()
-                .tripId(TRIP_ID).organizerId(10L).depositAmount(Money.wons(50000)).build()))
+                .tripId(TRIP_ID).organizerId(10L).depositAmount(Money.wons(50000))
+                .pgProvider(PgProvider.TOSS_PAYMENTS).tripStartAt(LocalDateTime.now().plusDays(7))
+                .build()))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ErrorCode.DEPOSIT_POLICY_ALREADY_EXISTS);
@@ -81,8 +92,7 @@ class DepositPolicyServiceTest {
     @Test
     @DisplayName("방장이 참가자 3명에게 보증금 요청 → 3건 생성")
     void requestDeposits_success() {
-        DepositPolicy policy = DepositPolicy.create(TRIP_ID, 10L, Money.wons(50000));
-        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(policy));
+        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(samplePolicy()));
         given(loadDepositPort.existsByTripIdAndUserId(any(), any())).willReturn(false);
         given(saveDepositPort.save(any())).willAnswer(inv -> {
             Deposit d = inv.getArgument(0);
@@ -115,8 +125,7 @@ class DepositPolicyServiceTest {
     @Test
     @DisplayName("이미 요청된 사용자 재요청 시 예외")
     void requestDeposits_duplicate_throws() {
-        DepositPolicy policy = DepositPolicy.create(TRIP_ID, 10L, Money.wons(50000));
-        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(policy));
+        given(loadDepositPolicyPort.findByTripId(TRIP_ID)).willReturn(Optional.of(samplePolicy()));
         given(loadDepositPort.existsByTripIdAndUserId(TRIP_ID, 101L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.requestDeposits(RequestDepositCommand.builder()

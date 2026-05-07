@@ -59,7 +59,7 @@ class UpdateSettlementServiceTest {
         SettlementResult result = sut.update(command(NEW_AMOUNT));
 
         then(notificationPort).should()
-                .notifyImmediateSettlement(DEBTOR_ID, PAYER_ID, NEW_AMOUNT, "점심값");
+                .notifySettlementAmountUpdated(DEBTOR_ID, PAYER_ID, NEW_AMOUNT, "점심값");
         then(loadSettlementBalancePort).shouldHaveNoInteractions();
         then(saveSettlementBalancePort).shouldHaveNoInteractions();
 
@@ -135,12 +135,28 @@ class UpdateSettlementServiceTest {
     }
 
     @Test
+    @DisplayName("취소된 정산 수정 → SETTLEMENT_ALREADY_CANCELLED 예외")
+    void update_cancelled_throws() {
+        Settlement cancelled = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, OLD_AMOUNT, "점심값", SettlementType.IMMEDIATE);
+        cancelled.notified();
+        cancelled.cancel();
+        given(loadSettlementPort.findById(SETTLEMENT_ID)).willReturn(Optional.of(withId(cancelled, SETTLEMENT_ID)));
+
+        assertThatThrownBy(() -> sut.update(command(NEW_AMOUNT)))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SETTLEMENT_ALREADY_CANCELLED);
+
+        then(saveSettlementPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("즉시 정산 알림 실패 → 예외 전파, 저장 안 됨")
     void update_immediate_notificationFails_throws() {
         given(loadSettlementPort.findById(SETTLEMENT_ID))
                 .willReturn(Optional.of(immediateSettlement(OLD_AMOUNT)));
         willThrow(new RuntimeException("알림 서비스 오류"))
-                .given(notificationPort).notifyImmediateSettlement(any(), any(), any(), any());
+                .given(notificationPort).notifySettlementAmountUpdated(any(), any(), any(), any());
 
         assertThatThrownBy(() -> sut.update(command(NEW_AMOUNT)))
                 .isInstanceOf(RuntimeException.class);

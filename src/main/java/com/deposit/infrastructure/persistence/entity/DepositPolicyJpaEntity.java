@@ -2,6 +2,7 @@ package com.deposit.infrastructure.persistence.entity;
 
 import com.deposit.domain.deposit.DepositPolicy;
 import com.deposit.domain.deposit.vo.Money;
+import com.deposit.domain.deposit.vo.PgProvider;
 import com.deposit.domain.deposit.vo.PolicyStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,6 +35,11 @@ public class DepositPolicyJpaEntity {
     @Column(nullable = false)
     private PolicyStatus status;
 
+    @Enumerated(EnumType.STRING)
+    private PgProvider pgProvider;
+
+    private LocalDateTime tripStartAt;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -44,6 +50,8 @@ public class DepositPolicyJpaEntity {
         entity.organizerId = policy.getOrganizerId();
         entity.depositAmount = policy.getDepositAmount().getAmount();
         entity.status = policy.getStatus();
+        entity.pgProvider = policy.getPgProvider();
+        entity.tripStartAt = policy.getTripStartAt();
         entity.createdAt = policy.getCreatedAt();
         return entity;
     }
@@ -55,6 +63,8 @@ public class DepositPolicyJpaEntity {
                 .organizerId(organizerId)
                 .depositAmount(Money.of(depositAmount))
                 .status(status)
+                .pgProvider(pgProvider)
+                .tripStartAt(tripStartAt)
                 .createdAt(createdAt)
                 .build();
     }

@@ -40,7 +40,9 @@ public class DepositPolicyService implements CreateDepositPolicyUseCase, Request
         DepositPolicy policy = DepositPolicy.create(
                 command.getTripId(),
                 command.getOrganizerId(),
-                command.getDepositAmount()
+                command.getDepositAmount(),
+                command.getPgProvider(),
+                command.getTripStartAt()
         );
 
         return DepositPolicyResult.from(saveDepositPolicyPort.save(policy));

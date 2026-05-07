@@ -37,7 +37,7 @@ public class CreateSettlementService implements CreateSettlementUseCase {
         String notificationMessage = null;
 
         if (settlement.isImmediate()) {
-            notificationPort.notifyImmediateSettlement(
+            notificationPort.notifySettlementCreated(
                     command.getDebtorId(),
                     command.getPayerId(),
                     command.getAmount(),

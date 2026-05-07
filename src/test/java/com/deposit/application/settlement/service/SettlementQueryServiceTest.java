@@ -2,6 +2,7 @@ package com.deposit.application.settlement.service;
 
 import com.deposit.application.settlement.dto.result.SettlementBalanceResult;
 import com.deposit.application.settlement.dto.result.SettlementResult;
+import com.deposit.application.settlement.dto.result.SettlementSummaryResult;
 import com.deposit.application.settlement.port.out.LoadSettlementBalancePort;
 import com.deposit.application.settlement.port.out.LoadSettlementPort;
 import com.deposit.domain.deposit.vo.Money;
@@ -89,6 +90,43 @@ class SettlementQueryServiceTest {
         assertThat(sut.getByTrip(TRIP_ID)).isEmpty();
     }
 
+    @Test
+    @DisplayName("summary: 활성/완료/취소 정산을 각각 분리하여 반환")
+    void getSummary_separatesActiveCompletedCancelled() {
+        Settlement active1 = settlement(1L, SettlementType.IMMEDIATE, DEBTOR_A);
+        Settlement active2 = settlement(2L, SettlementType.DEFERRED, DEBTOR_B);
+        Settlement completed = completedSettlement(3L, DEBTOR_A);
+        Settlement cancelled = cancelledSettlement(4L, DEBTOR_A);
+
+        given(loadSettlementPort.findAllByTripId(TRIP_ID))
+                .willReturn(List.of(active1, active2, completed, cancelled));
+        given(loadSettlementBalancePort.findAllByTripId(TRIP_ID))
+                .willReturn(List.of(balance(1L, DEBTOR_B, Money.wons(25000))));
+
+        SettlementSummaryResult result = sut.getSummary(TRIP_ID);
+
+        assertThat(result.getActiveSettlements()).hasSize(2);
+        assertThat(result.getCompletedSettlements()).hasSize(1);
+        assertThat(result.getCompletedSettlements().get(0).getId()).isEqualTo(3L);
+        assertThat(result.getCancelledSettlements()).hasSize(1);
+        assertThat(result.getCancelledSettlements().get(0).getId()).isEqualTo(4L);
+        assertThat(result.getPendingBalances()).hasSize(1);
+        assertThat(result.getPendingBalances().get(0).getTotalAmount().intValue()).isEqualTo(25000);
+    }
+
+    @Test
+    @DisplayName("summary: 정산 내역 없음 → 모든 목록 비어 있음")
+    void getSummary_noSettlements_allEmpty() {
+        given(loadSettlementPort.findAllByTripId(TRIP_ID)).willReturn(List.of());
+        given(loadSettlementBalancePort.findAllByTripId(TRIP_ID)).willReturn(List.of());
+
+        SettlementSummaryResult result = sut.getSummary(TRIP_ID);
+
+        assertThat(result.getActiveSettlements()).isEmpty();
+        assertThat(result.getCancelledSettlements()).isEmpty();
+        assertThat(result.getPendingBalances()).isEmpty();
+    }
+
     // ──────────────────────────────────────────────
     // 헬퍼
     // ──────────────────────────────────────────────
@@ -100,6 +138,24 @@ class SettlementQueryServiceTest {
                 .id(id).tripId(TRIP_ID).payerId(PAYER_ID).debtorId(debtorId)
                 .amount(Money.wons(10000)).description("테스트")
                 .type(type).status(status).createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private Settlement completedSettlement(Long id, Long debtorId) {
+        return Settlement.builder()
+                .id(id).tripId(TRIP_ID).payerId(PAYER_ID).debtorId(debtorId)
+                .amount(Money.wons(10000)).description("완료됨")
+                .type(SettlementType.IMMEDIATE).status(SettlementStatus.COMPLETED)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private Settlement cancelledSettlement(Long id, Long debtorId) {
+        return Settlement.builder()
+                .id(id).tripId(TRIP_ID).payerId(PAYER_ID).debtorId(debtorId)
+                .amount(Money.wons(10000)).description("취소됨")
+                .type(SettlementType.IMMEDIATE).status(SettlementStatus.CANCELLED)
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 

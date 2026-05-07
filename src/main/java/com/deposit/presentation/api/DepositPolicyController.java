@@ -1,15 +1,21 @@
 package com.deposit.presentation.api;
 
+import com.deposit.application.deposit.dto.command.ConfirmTripCommand;
 import com.deposit.application.deposit.dto.command.CreateDepositPolicyCommand;
 import com.deposit.application.deposit.dto.command.RequestDepositCommand;
+import com.deposit.application.deposit.dto.result.AutoRefundResult;
+import com.deposit.application.deposit.dto.result.ConfirmTripResult;
 import com.deposit.application.deposit.dto.result.DepositPolicyResult;
 import com.deposit.application.deposit.dto.result.DepositResult;
 import com.deposit.application.deposit.dto.result.TripDepositStatusResult;
+import com.deposit.application.deposit.port.in.AutoRefundUnconfirmedTripsUseCase;
+import com.deposit.application.deposit.port.in.ConfirmTripUseCase;
 import com.deposit.application.deposit.port.in.CreateDepositPolicyUseCase;
 import com.deposit.application.deposit.port.in.GetTripDepositStatusUseCase;
 import com.deposit.application.deposit.port.in.RequestDepositUseCase;
 import com.deposit.common.response.ApiResponse;
 import com.deposit.domain.deposit.vo.Money;
+import com.deposit.presentation.api.dto.request.ConfirmTripRequest;
 import com.deposit.presentation.api.dto.request.CreateDepositPolicyRequest;
 import com.deposit.presentation.api.dto.request.RequestDepositRequest;
 import jakarta.validation.Valid;
@@ -28,9 +34,11 @@ public class DepositPolicyController {
     private final CreateDepositPolicyUseCase createDepositPolicyUseCase;
     private final RequestDepositUseCase requestDepositUseCase;
     private final GetTripDepositStatusUseCase getTripDepositStatusUseCase;
+    private final ConfirmTripUseCase confirmTripUseCase;
+    private final AutoRefundUnconfirmedTripsUseCase autoRefundUnconfirmedTripsUseCase;
 
     /**
-     * 방장이 여행 보증금 정책 설정 (안전한 여행)
+     * 방장이 여행 보증금 정책 설정 (PG사 및 여행 시작 시간 포함)
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -43,6 +51,8 @@ public class DepositPolicyController {
                         .tripId(tripId)
                         .organizerId(request.getOrganizerId())
                         .depositAmount(Money.of(request.getDepositAmount()))
+                        .pgProvider(request.getPgProvider())
+                        .tripStartAt(request.getTripStartAt())
                         .build()
         );
         return ApiResponse.ok(result, "보증금 정책이 설정되었습니다.");
@@ -74,5 +84,32 @@ public class DepositPolicyController {
     public ApiResponse<TripDepositStatusResult> getTripDepositStatus(@PathVariable UUID tripId) {
         TripDepositStatusResult result = getTripDepositStatusUseCase.getStatus(tripId);
         return ApiResponse.ok(result, result.getTripStartMessage());
+    }
+
+    /**
+     * 여행 확정: 전원 납부 완료 확인 후 여행 확정 처리
+     */
+    @PostMapping("/confirm")
+    public ApiResponse<ConfirmTripResult> confirmTrip(
+            @PathVariable UUID tripId,
+            @RequestBody @Valid ConfirmTripRequest request) {
+
+        ConfirmTripResult result = confirmTripUseCase.confirm(
+                ConfirmTripCommand.builder()
+                        .tripId(tripId)
+                        .organizerId(request.getOrganizerId())
+                        .build()
+        );
+        return ApiResponse.ok(result,
+                String.format("여행이 확정되었습니다. 납부 완료 인원: %d명", result.getConfirmedDeposits()));
+    }
+
+    /**
+     * 만료 여행 자동 환불 수동 트리거 (운영/테스트용)
+     */
+    @PostMapping("/auto-refund")
+    public ApiResponse<AutoRefundResult> triggerAutoRefund() {
+        AutoRefundResult result = autoRefundUnconfirmedTripsUseCase.autoRefundExpiredTrips();
+        return ApiResponse.ok(result, result.getSummaryMessage());
     }
 }

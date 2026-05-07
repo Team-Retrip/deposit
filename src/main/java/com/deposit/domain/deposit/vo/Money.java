@@ -37,6 +37,13 @@ public class Money {
         return new Money(this.amount.add(other.amount));
     }
 
+    public Money divide(int divisor) {
+        if (divisor <= 0) {
+            throw new IllegalArgumentException("나누는 수는 1 이상이어야 합니다.");
+        }
+        return new Money(this.amount.divide(BigDecimal.valueOf(divisor), 0, RoundingMode.DOWN));
+    }
+
     public boolean isGreaterThan(Money other) {
         return this.amount.compareTo(other.amount) > 0;
     }

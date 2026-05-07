@@ -50,7 +50,7 @@ class CreateSettlementServiceTest {
 
         SettlementResult result = sut.create(immediateCommand());
 
-        then(notificationPort).should().notifyImmediateSettlement(DEBTOR_ID, PAYER_ID, AMOUNT, "점심값");
+        then(notificationPort).should().notifySettlementCreated(DEBTOR_ID, PAYER_ID, AMOUNT, "점심값");
         then(loadSettlementBalancePort).shouldHaveNoInteractions();
         then(saveSettlementBalancePort).shouldHaveNoInteractions();
 
@@ -101,7 +101,7 @@ class CreateSettlementServiceTest {
     @DisplayName("즉시 정산 알림 실패 → 예외 전파, 정산 저장되지 않음")
     void create_immediate_notificationFails_throws() {
         willThrow(new RuntimeException("알림 서비스 오류"))
-                .given(notificationPort).notifyImmediateSettlement(any(), any(), any(), any());
+                .given(notificationPort).notifySettlementCreated(any(), any(), any(), any());
 
         assertThatThrownBy(() -> sut.create(immediateCommand()))
                 .isInstanceOf(RuntimeException.class)

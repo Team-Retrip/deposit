@@ -19,7 +19,15 @@
       "Bash(./gradlew test *)",
       "Bash(grep -v \"^$\")",
       "Bash(./gradlew cleanTest test)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(./gradlew compileJava compileTestJava)",
+      "Bash(awk -F'\"' '{sum+=$2} END {print \"Total tests:\", sum}')",
+      "Bash(awk -F'\"' '{sum+=$2} END {print \"Total failures:\", sum}')",
+      "Bash(awk -F'\"' '{sum+=$2} END {print \"Total errors:\", sum}')",
+      "Bash(awk -F'\"' '{sum+=$2} END {print \"Total:\", sum}')",
+      "Bash(awk -F'\"' '{sum+=$2} END {print \"Failures:\", sum}')",
+      "Bash(awk -F'\"' '{sum+=$2} END{print \"Total tests:\", sum}')",
+      "Bash(awk -F'\"' '{s+=$2} END{print s, \"tests\"}')"
     ]
   }
 }

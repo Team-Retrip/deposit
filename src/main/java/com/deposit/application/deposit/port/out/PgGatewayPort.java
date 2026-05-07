@@ -1,6 +1,7 @@
 package com.deposit.application.deposit.port.out;
 
 import com.deposit.domain.deposit.vo.PaymentMethod;
+import com.deposit.domain.deposit.vo.PgProvider;
 
 import java.math.BigDecimal;
 
@@ -11,7 +12,8 @@ public interface PgGatewayPort {
             Long userId,
             BigDecimal amount,
             PaymentMethod paymentMethod,
-            String orderName
+            String orderName,
+            PgProvider pgProvider
     ) {}
 
     record PayResult(

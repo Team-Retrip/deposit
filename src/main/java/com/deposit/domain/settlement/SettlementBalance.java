@@ -57,4 +57,12 @@ public class SettlementBalance {
         this.totalAmount = this.totalAmount.subtract(oldAmount).add(newAmount);
         this.lastUpdatedAt = LocalDateTime.now();
     }
+
+    /**
+     * 정산 취소 시 해당 금액을 누적 잔액에서 차감한다.
+     */
+    public void deduct(Money amount) {
+        this.totalAmount = this.totalAmount.subtract(amount);
+        this.lastUpdatedAt = LocalDateTime.now();
+    }
 }

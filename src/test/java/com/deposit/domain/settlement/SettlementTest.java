@@ -74,6 +74,80 @@ class SettlementTest {
     }
 
     @Nested
+    @DisplayName("완료(complete)")
+    class Complete {
+
+        @Test
+        @DisplayName("NOTIFIED 상태에서 완료 → COMPLETED, isCompleted=true, isCompletable=false")
+        void complete_fromNotified() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "점심값", SettlementType.IMMEDIATE);
+            settlement.notified();
+            settlement.complete();
+
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.COMPLETED);
+            assertThat(settlement.isCompleted()).isTrue();
+            assertThat(settlement.isCompletable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("ACCUMULATED 상태에서 완료 → COMPLETED")
+        void complete_fromAccumulated() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "숙박비", SettlementType.DEFERRED);
+            settlement.accumulated();
+            settlement.complete();
+
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.COMPLETED);
+            assertThat(settlement.isCompleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("CANCELLED 상태는 완료 처리 불가 → isCompletable=false")
+        void cancelled_isNotCompletable() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "점심값", SettlementType.IMMEDIATE);
+            settlement.notified();
+            settlement.cancel();
+
+            assertThat(settlement.isCompletable()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("취소(cancel)")
+    class Cancel {
+
+        @Test
+        @DisplayName("즉시 정산 취소 → CANCELLED 상태로 전이, isCancelled=true")
+        void cancel_immediate() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "점심값", SettlementType.IMMEDIATE);
+            settlement.notified();
+            settlement.cancel();
+
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.CANCELLED);
+            assertThat(settlement.isCancelled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("나중에 정산 취소 → CANCELLED 상태로 전이")
+        void cancel_deferred() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "숙박비", SettlementType.DEFERRED);
+            settlement.accumulated();
+            settlement.cancel();
+
+            assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.CANCELLED);
+            assertThat(settlement.isCancelled()).isTrue();
+        }
+
+        @Test
+        @DisplayName("취소되지 않은 정산 → isCancelled=false")
+        void notCancelled_isCancelledFalse() {
+            Settlement settlement = Settlement.create(TRIP_ID, PAYER_ID, DEBTOR_ID, AMOUNT, "점심값", SettlementType.IMMEDIATE);
+            settlement.notified();
+
+            assertThat(settlement.isCancelled()).isFalse();
+        }
+    }
+
+    @Nested
     @DisplayName("금액 수정(updateAmount)")
     class UpdateAmount {
 

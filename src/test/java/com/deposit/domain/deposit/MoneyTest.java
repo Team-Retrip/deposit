@@ -48,4 +48,27 @@ class MoneyTest {
         Money money = Money.of(new BigDecimal("999.9"));
         assertThat(money.getAmount()).isEqualByComparingTo("999");
     }
+
+    @Test
+    @DisplayName("divide: 균등 분할, 소수점 절사")
+    void divide_even() {
+        Money money = Money.wons(60000);
+        assertThat(money.divide(3)).isEqualTo(Money.wons(20000));
+    }
+
+    @Test
+    @DisplayName("divide: 나머지 발생 시 절사")
+    void divide_remainder() {
+        Money money = Money.wons(10000);
+        // 10000 / 3 = 3333.33... → 3333
+        assertThat(money.divide(3)).isEqualTo(Money.wons(3333));
+    }
+
+    @Test
+    @DisplayName("divide: 0 또는 음수로 나누면 예외")
+    void divide_zero_throws() {
+        Money money = Money.wons(10000);
+        assertThatThrownBy(() -> money.divide(0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

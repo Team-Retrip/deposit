@@ -33,13 +33,17 @@ public class UpdateSettlementService implements UpdateSettlementUseCase {
         Settlement settlement = loadSettlementPort.findById(command.getSettlementId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
 
+        if (settlement.isCancelled()) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_ALREADY_CANCELLED);
+        }
+
         Money oldAmount = settlement.getAmount();
         settlement.updateAmount(command.getNewAmount());
 
         String notificationMessage = null;
 
         if (settlement.isImmediate()) {
-            notificationPort.notifyImmediateSettlement(
+            notificationPort.notifySettlementAmountUpdated(
                     settlement.getDebtorId(),
                     settlement.getPayerId(),
                     command.getNewAmount(),

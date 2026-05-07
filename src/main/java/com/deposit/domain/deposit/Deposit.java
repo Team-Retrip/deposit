@@ -23,6 +23,7 @@ import java.util.UUID;
 public class Deposit {
 
     private static final int REFUND_FREE_DAYS = 30;
+    public static final BigDecimal LATE_REFUND_FEE_RATE = new BigDecimal("0.035");
 
     private Long id;
     private UUID tripId;

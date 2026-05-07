@@ -1,10 +1,13 @@
 package com.deposit.presentation.api.dto.request;
 
+import com.deposit.domain.deposit.vo.PgProvider;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 public class CreateDepositPolicyRequest {
@@ -15,4 +18,11 @@ public class CreateDepositPolicyRequest {
     @NotNull(message = "보증금 금액을 입력해주세요.")
     @DecimalMin(value = "1", message = "보증금은 1원 이상이어야 합니다.")
     private BigDecimal depositAmount;
+
+    @NotNull(message = "결제 PG사를 선택해주세요. (TOSS_PAYMENTS, KG_INICIS)")
+    private PgProvider pgProvider;
+
+    @NotNull(message = "여행 시작 시간을 입력해주세요.")
+    @Future(message = "여행 시작 시간은 현재 시간 이후여야 합니다.")
+    private LocalDateTime tripStartAt;
 }

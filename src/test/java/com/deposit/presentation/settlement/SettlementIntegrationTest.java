@@ -39,6 +39,11 @@ class SettlementIntegrationTest {
     private static final UUID TRIP_9  = UUID.fromString("aa000000-0000-0000-0000-000000000009");
     private static final UUID TRIP_10 = UUID.fromString("aa000000-0000-0000-0000-000000000010");
     private static final UUID TRIP_11 = UUID.fromString("aa000000-0000-0000-0000-000000000011");
+    private static final UUID TRIP_12 = UUID.fromString("aa000000-0000-0000-0000-000000000012");
+    private static final UUID TRIP_13 = UUID.fromString("aa000000-0000-0000-0000-000000000013");
+    private static final UUID TRIP_14 = UUID.fromString("aa000000-0000-0000-0000-000000000014");
+    private static final UUID TRIP_15 = UUID.fromString("aa000000-0000-0000-0000-000000000015");
+    private static final UUID TRIP_16 = UUID.fromString("aa000000-0000-0000-0000-000000000016");
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
@@ -246,6 +251,20 @@ class SettlementIntegrationTest {
     }
 
     @Test
+    @DisplayName("PATCH 취소된 정산 수정 → 409")
+    void update_cancelledSettlement_returns409() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_6, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+        mockMvc.perform(delete("/api/trips/" + TRIP_6 + "/settlements/" + settlementId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/trips/" + TRIP_6 + "/settlements/" + settlementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("amount", 20000))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     @DisplayName("PATCH 존재하지 않는 정산 수정 → 404")
     void update_notFound_returns404() throws Exception {
         mockMvc.perform(patch("/api/trips/" + TRIP_5 + "/settlements/99999")
@@ -265,6 +284,114 @@ class SettlementIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("amount", 0))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ──────────────────────────────────────────────
+    // 정산 취소
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("DELETE 즉시 정산 취소 → 200, status=CANCELLED, 취소 알림 메시지 반환")
+    void cancelImmediate_returns200WithCancellationMessage() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_7, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+
+        mockMvc.perform(delete("/api/trips/" + TRIP_7 + "/settlements/" + settlementId))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.type").value("IMMEDIATE"))
+                .andExpect(jsonPath("$.data.notificationMessage").value(containsString("20")))
+                .andExpect(jsonPath("$.message").value(containsString("취소 알림")));
+    }
+
+    @Test
+    @DisplayName("DELETE 나중에 정산 취소 → 200, status=CANCELLED, 잔액 차감됨")
+    void cancelDeferred_returns200AndDeductsBalance() throws Exception {
+        createSettlement(TRIP_8, 10L, 20L, 20000, "교통비", SettlementType.DEFERRED);
+        Long settlementId = createSettlementAndGetId(TRIP_8, 10L, 20L, 30000, "숙박비", SettlementType.DEFERRED);
+        // 누적 잔액 = 50000
+
+        mockMvc.perform(delete("/api/trips/" + TRIP_8 + "/settlements/" + settlementId))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.message").value("정산이 취소되었습니다."));
+
+        // 잔액 50000 - 30000 = 20000
+        mockMvc.perform(get("/api/trips/" + TRIP_8 + "/settlements/balances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(20000));
+    }
+
+    @Test
+    @DisplayName("DELETE 나중에 정산 전체 취소 → 잔액 0원")
+    void cancelDeferred_allCancelled_balanceBecomesZero() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_9, 10L, 20L, 30000, "숙박비", SettlementType.DEFERRED);
+
+        mockMvc.perform(delete("/api/trips/" + TRIP_9 + "/settlements/" + settlementId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/trips/" + TRIP_9 + "/settlements/balances"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].totalAmount").value(0));
+    }
+
+    @Test
+    @DisplayName("DELETE 이미 취소된 정산 재취소 → 409")
+    void cancelAlreadyCancelled_returns409() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_10, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+        mockMvc.perform(delete("/api/trips/" + TRIP_10 + "/settlements/" + settlementId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/trips/" + TRIP_10 + "/settlements/" + settlementId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("DELETE 존재하지 않는 정산 취소 → 404")
+    void cancelNotFound_returns404() throws Exception {
+        mockMvc.perform(delete("/api/trips/" + TRIP_11 + "/settlements/99999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ──────────────────────────────────────────────
+    // 정산 현황 요약 조회
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET summary: 활성/취소 정산과 누적 잔액을 분리하여 반환")
+    void getSummary_separatesActiveAndCancelledAndBalances() throws Exception {
+        // 즉시 정산 2건
+        Long cancelTarget = createSettlementAndGetId(TRIP_12, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+        createSettlement(TRIP_12, 10L, 30L, 10000, "커피값", SettlementType.IMMEDIATE);
+        // 나중에 정산 1건 (잔액 누적)
+        createSettlement(TRIP_12, 10L, 20L, 25000, "숙박비", SettlementType.DEFERRED);
+        // 즉시 정산 1건 취소
+        mockMvc.perform(delete("/api/trips/" + TRIP_12 + "/settlements/" + cancelTarget))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/trips/" + TRIP_12 + "/settlements/summary"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeSettlements", hasSize(2)))
+                .andExpect(jsonPath("$.data.cancelledSettlements", hasSize(1)))
+                .andExpect(jsonPath("$.data.cancelledSettlements[0].status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.pendingBalances", hasSize(1)))
+                .andExpect(jsonPath("$.data.pendingBalances[0].totalAmount").value(25000));
+    }
+
+    @Test
+    @DisplayName("GET summary: 정산 내역 없으면 모든 목록 비어 있음")
+    void getSummary_empty() throws Exception {
+        mockMvc.perform(get("/api/trips/" + TRIP_13 + "/settlements/summary"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeSettlements", hasSize(0)))
+                .andExpect(jsonPath("$.data.cancelledSettlements", hasSize(0)))
+                .andExpect(jsonPath("$.data.pendingBalances", hasSize(0)));
     }
 
     // ──────────────────────────────────────────────
@@ -298,6 +425,44 @@ class SettlementIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ──────────────────────────────────────────────
+    // 정산 완료 처리
+    // ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("POST complete 즉시 정산 완료 → 200, status=COMPLETED")
+    void completeImmediate_returns200() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_14, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+
+        mockMvc.perform(post("/api/trips/" + TRIP_14 + "/settlements/" + settlementId + "/complete"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.message").value("정산이 완료 처리되었습니다."));
+    }
+
+    @Test
+    @DisplayName("POST complete 나중에 정산 완료 → 200, status=COMPLETED")
+    void completeDeferred_returns200() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_15, 10L, 20L, 25000, "숙박비", SettlementType.DEFERRED);
+
+        mockMvc.perform(post("/api/trips/" + TRIP_15 + "/settlements/" + settlementId + "/complete"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
+    @DisplayName("POST complete 이미 완료된 정산 재완료 → 409")
+    void completeAlreadyCompleted_returns409() throws Exception {
+        Long settlementId = createSettlementAndGetId(TRIP_16, 10L, 20L, 15000, "점심값", SettlementType.IMMEDIATE);
+        mockMvc.perform(post("/api/trips/" + TRIP_16 + "/settlements/" + settlementId + "/complete"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/trips/" + TRIP_16 + "/settlements/" + settlementId + "/complete"))
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false));
     }
 

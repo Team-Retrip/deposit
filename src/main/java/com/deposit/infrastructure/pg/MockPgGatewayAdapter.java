@@ -25,13 +25,12 @@ public class MockPgGatewayAdapter implements PgGatewayPort {
 
     @Override
     public PayResult pay(PayCommand command) {
-        log.info("[PG] 결제 요청 - orderId={}, userId={}, amount={}, method={}",
-                command.orderId(), command.userId(), command.amount(), command.paymentMethod());
+        String pgName = command.pgProvider() != null ? command.pgProvider().name() : "DEFAULT";
+        log.info("[PG:{}] 결제 요청 - userId={}, amount={}, method={}",
+                pgName, command.userId(), command.amount(), command.paymentMethod());
 
-        // Mock: 항상 결제 성공
         String pgTransactionId = "PG-PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
-        log.info("[PG] 결제 승인 완료 - pgTransactionId={}", pgTransactionId);
+        log.info("[PG:{}] 결제 승인 완료 - pgTransactionId={}", pgName, pgTransactionId);
 
         return new PayResult(true, pgTransactionId, null);
     }
@@ -41,9 +40,7 @@ public class MockPgGatewayAdapter implements PgGatewayPort {
         log.info("[PG] 환불 요청 - pgTransactionId={}, amount={}, reason={}",
                 command.pgTransactionId(), command.refundAmount(), command.reason());
 
-        // Mock: 항상 환불 성공
         String pgRefundTransactionId = "PG-REFUND-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
         log.info("[PG] 환불 완료 - pgRefundTransactionId={}", pgRefundTransactionId);
 
         return new RefundResult(true, pgRefundTransactionId, null);

@@ -107,4 +107,39 @@ class SettlementBalanceTest {
 
         assertThat(balance.getLastUpdatedAt()).isAfterOrEqualTo(before);
     }
+
+    @Test
+    @DisplayName("deduct: 누적 금액에서 해당 금액 차감")
+    void deduct_reducesTotalAmount() {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(50000));
+
+        balance.deduct(Money.wons(30000));
+
+        assertThat(balance.getTotalAmount()).isEqualTo(Money.wons(20000));
+    }
+
+    @Test
+    @DisplayName("deduct: 전체 금액 차감 시 totalAmount = 0")
+    void deduct_fullAmount_becomesZero() {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(30000));
+
+        balance.deduct(Money.wons(30000));
+
+        assertThat(balance.getTotalAmount()).isEqualTo(Money.ZERO);
+    }
+
+    @Test
+    @DisplayName("deduct 시 lastUpdatedAt 갱신")
+    void deduct_updatesLastUpdatedAt() throws InterruptedException {
+        SettlementBalance balance = SettlementBalance.create(TRIP_ID, PAYER_ID, DEBTOR_ID);
+        balance.accumulate(Money.wons(30000));
+        var before = balance.getLastUpdatedAt();
+        Thread.sleep(1);
+
+        balance.deduct(Money.wons(10000));
+
+        assertThat(balance.getLastUpdatedAt()).isAfterOrEqualTo(before);
+    }
 }

@@ -71,7 +71,27 @@ public class Settlement {
         this.amount = newAmount;
     }
 
+    public void complete() {
+        this.status = SettlementStatus.COMPLETED;
+    }
+
+    public void cancel() {
+        this.status = SettlementStatus.CANCELLED;
+    }
+
     public boolean isImmediate() {
         return this.type == SettlementType.IMMEDIATE;
+    }
+
+    public boolean isCancelled() {
+        return this.status == SettlementStatus.CANCELLED;
+    }
+
+    public boolean isCompleted() {
+        return this.status == SettlementStatus.COMPLETED;
+    }
+
+    public boolean isCompletable() {
+        return this.status == SettlementStatus.NOTIFIED || this.status == SettlementStatus.ACCUMULATED;
     }
 }
